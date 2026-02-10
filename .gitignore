@@ -1,0 +1,68 @@
+# ===================================================================
+# Environment & Secret Files
+# ===================================================================
+# API 키, 비밀번호 등 민감 정보를 포함하는 .env 파일을 차단합니다.
+# 보안의 가장 기본적이고 중요한 규칙입니다.
+.env
+.env.*
+!.env.example
+
+# ===================================================================
+# Node.js Dependencies
+# ===================================================================
+# 수천 개의 파일이 포함된, 용량이 매우 큰 node_modules 폴더를 제외합니다.
+# 이 폴더는 `npm install` 명령어로 언제든지 다시 생성할 수 있습니다.
+node_modules/
+
+# ===================================================================
+# Build & Output Directories
+# ===================================================================
+# 컴파일 및 빌드 결과물 폴더를 제외합니다.
+/build
+/dist
+/out
+
+# ===================================================================
+# Log & Cache Files
+# ===================================================================
+# 실행 로그 및 캐시 파일을 제외하여 저장소를 깨끗하게 유지합니다.
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+.npm
+.eslintcache
+.stylelintcache
+.cache
+.coverage
+.nyc_output
+
+# ===================================================================
+# Operating System & Editor Specific Files
+# ===================================================================
+# 다양한 개발 환경에서 자동으로 생성되는 시스템 및 에디터 설정 파일을 제외합니다.
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.Spotlight-V100
+.Trashes
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# VS Code
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+.history

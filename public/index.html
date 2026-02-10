@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>사내 문서 Q&A AI 서비스</title>
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="/style.css">
 </head>
 <body>
 
@@ -12,6 +12,19 @@
         <header>
             <h1>사내 문서 Q&A AI</h1>
             <p>궁금한 점을 무엇이든 물어보세요!</p>
+
+            <!-- 파일 업로드 섹션 추가 -->
+            <div class="file-upload-section">
+                <p>AI에게 새로운 문서를 학습시키세요.</p>
+                <form id="training-form">
+                    <input type="file" id="document-file" name="document" accept=".txt,.pdf,.md" required>
+                    <button type="submit" id="train-button">
+                        <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 0 24 24" width="24px" fill="#FFFFFF"><path d="M0 0h24v24H0V0z" fill="none"/><path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM14 13v4h-4v-4H7l5-5 5 5h-3z"/></svg>
+                        <span>학습시키기</span>
+                    </button>
+                </form>
+                <p id="training-status" class="training-status"></p>
+            </div>
         </header>
 
         <main>
@@ -29,7 +42,7 @@
         <footer>
             <form id="question-form" class="question-form">
                 <textarea id="question-input" placeholder="여기에 질문을 입력하세요..." required></textarea>
-                <button type="submit">
+                <button type="submit" id="submit-button">
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="24" height="24">
                         <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
                     </svg>
@@ -38,7 +51,6 @@
         </footer>
     </div>
 
-    <!-- JavaScript 파일 연결 -->
-    <script src="main.js"></script>
+    <script src="/main.js"></script>
 </body>
 </html>
