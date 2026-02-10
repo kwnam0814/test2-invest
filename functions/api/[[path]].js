@@ -1,4 +1,3 @@
-'''
 import OpenAI from 'openai';
 import pdf from 'pdf-parse/lib/pdf-parse.js';
 
@@ -104,8 +103,7 @@ async function handleAsk(request, env) {
             model: "gpt-4o-mini",
             messages: [
                 { role: "system", content: `You are a professional summarizer. Provide a concise summary of the document. The summary MUST be in ${language}.` },
-                { role: "user", content: `[DOCUMENT]:
-${documentText}` }
+                { role: "user", content: `[DOCUMENT]:\n${documentText}` }
             ],
         });
         const summary = summaryCompletion.choices[0].message.content;
@@ -122,9 +120,7 @@ ${documentText}` }
         .sort((a, b) => b.similarity - a.similarity)
         .slice(0, 5)
         .map(ctx => ctx.content)
-        .join('
----
-');
+        .join('\n---\n');
     
     const systemPrompt = `You are a world-class AI expert on the document '${learnedFilename}'. Answer based *only* on the provided context. If the answer is not in the context, say so. **You MUST write your entire response in ${language}.**`;
 
@@ -132,11 +128,7 @@ ${documentText}` }
         model: "gpt-4o-mini",
         messages: [
             { role: "system", content: systemPrompt },
-            { role: "user", content: `[Context]:
-${topContexts}
-
-[Question]:
-${question}` }
+            { role: "user", content: `[Context]:\n${topContexts}\n\n[Question]:\n${question}` }
         ],
     });
     const answer = qaCompletion.choices[0].message.content;
@@ -179,4 +171,3 @@ export async function onRequest(context) {
         });
     }
 }
-''
