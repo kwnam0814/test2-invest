@@ -45,7 +45,6 @@ app.post('/api/train', upload.single('document'), async (req, res) => {
     }
 
     try {
-        // [수정됨] 한글 파일명 인코딩 문제 해결
         const originalnameInUtf8 = Buffer.from(req.file.originalname, 'latin1').toString('utf8');
         console.log(`학습 시작: ${originalnameInUtf8}`);
 
@@ -87,12 +86,11 @@ app.post('/api/train', upload.single('document'), async (req, res) => {
             documentVectors.push(...batchVectors);
         }
 
-        // [수정됨] 올바르게 인코딩된 파일명 사용
         learnedFilename = originalnameInUtf8;
         console.log(`학습 완료. 총 ${documentVectors.length}개의 벡터가 생성되었습니다.`);
 
         res.status(200).json({
-            message: `'${originalnameInUtf8}' 학습 및 임베딩 완료!`
+            message: `\'${originalnameInUtf8}\' 학습 및 임베딩 완료!`
         });
 
     } catch (error) {
@@ -125,7 +123,7 @@ app.post('/api/ask', async (req, res) => {
 
         const topContexts = similarities
             .sort((a, b) => b.similarity - a.similarity)
-            .slice(0, 3)
+            .slice(0, 5) 
             .map(ctx => ctx.content)
             .join('\n---\n');
 
@@ -134,14 +132,14 @@ app.post('/api/ask', async (req, res) => {
             messages: [
                 {
                     role: "system",
-                    content: `당신은 \'${learnedFilename}\' 문서의 내용을 기반으로 질문에 답변하는 전문 AI 어시스턴트입니다. 제공된 컨텍스트를 최우선으로 참고하여, 질문에 대해 정확하고 친절하게 답변해주세요. 만약 컨텍스트에 답변의 근거가 없다면, \"문서의 내용만으로는 답변하기 어렵습니다.\"라고 솔직하게 말해주세요.`
+                    content: `당신은 '${learnedFilename}' 문서를 완벽하게 이해하고 분석하는 AI 전문가입니다. 사용자의 질문에 답변할 때, 문서에서 찾아낸 여러 정보를 적극적으로 조합하고, 추론하고, 요약해서 하나의 완성된 답변을 만들어주세요. 단순히 내용을 찾는 것을 넘어, 당신의 지능을 사용해 통찰력 있는 답변을 제공해야 합니다. 하지만, 모든 답변은 반드시 주어진 문서 내용에 근거해야 합니다. 추론은 허용되지만, 없는 사실을 지어내서는 절대 안 됩니다. 만약 문서에서 근거를 찾을 수 없다면, '문서의 내용만으로는 답변하기 어렵습니다.'라고 솔직하게 답변하세요.`
                 },
                 {
                     role: "user",
                     content: `아래 컨텍스트를 바탕으로 다음 질문에 답변해주세요.\n\n[컨텍스트]:\n${topContexts}\n\n[질문]:\n${question}`
                 }
             ],
-            temperature: 0.5,
+            temperature: 0.7, 
         });
 
         const answer = completion.choices[0].message.content;
