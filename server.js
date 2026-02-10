@@ -14,6 +14,7 @@ const port = 3000;
 
 let documentVectors = [];
 let learnedFilename = null;
+let documentText = ''; 
 
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
@@ -39,115 +40,121 @@ function cosineSimilarity(vecA, vecB) {
     return dotProduct / (magA * magB);
 }
 
-app.post('/api/train', upload.single('document'), async (req, res) => {
-    if (!req.file) {
-        return res.status(400).json({ message: '파일이 업로드되지 않았습니다.' });
-    }
-
+// --- [업그레이드] AI 기반 언어 및 의도 감지기 ---
+async function detectInteraction(question) {
     try {
-        const originalnameInUtf8 = Buffer.from(req.file.originalname, 'latin1').toString('utf8');
-        console.log(`학습 시작: ${originalnameInUtf8}`);
-
-        let text = '';
-
-        if (req.file.mimetype === 'application/pdf') {
-            const options = { max: 0 };
-            const data = await pdf(req.file.buffer, options);
-            text = data.text;
-            console.log(`PDF 파일에서 텍스트 추출 완료. 총 ${data.numpages} 페이지.`);
-        } else {
-            text = req.file.buffer.toString('utf8');
-            console.log('일반 텍스트 파일 처리.');
-        }
-
-        if (!text) {
-            return res.status(400).json({ message: '파일에서 텍스트를 추출할 수 없습니다.' });
-        }
-
-        const chunks = chunkText(text);
-        console.log(`${chunks.length}개의 청크로 분할됨`);
-
-        documentVectors = [];
-        const batchSize = 100;
-
-        for (let i = 0; i < chunks.length; i += batchSize) {
-            const batchChunks = chunks.slice(i, i + batchSize);
-            console.log(`처리 중: ${i + batchChunks.length} / ${chunks.length} 청크...`);
-
-            const embeddingResponse = await openai.embeddings.create({
-                model: "text-embedding-3-small",
-                input: batchChunks,
-            });
-
-            const batchVectors = embeddingResponse.data.map((embedding, j) => ({
-                content: batchChunks[j],
-                vector: embedding.embedding,
-            }));
-            documentVectors.push(...batchVectors);
-        }
-
-        learnedFilename = originalnameInUtf8;
-        console.log(`학습 완료. 총 ${documentVectors.length}개의 벡터가 생성되었습니다.`);
-
-        res.status(200).json({
-            message: `\'${originalnameInUtf8}\' 학습 및 임베딩 완료!`
-        });
-
-    } catch (error) {
-        console.error('학습 중 오류:', error);
-        res.status(500).json({ message: '문서 학습 중 API 오류가 발생했습니다. 오류 로그를 확인하세요.' });
-    }
-});
-
-app.post('/api/ask', async (req, res) => {
-    const { question } = req.body;
-
-    if (!question) {
-        return res.status(400).json({ message: '질문이 없습니다.' });
-    }
-    if (documentVectors.length === 0) {
-        return res.json({ answer: "아직 학습된 문서가 없습니다. 먼저 문서를 학습시켜 주세요." });
-    }
-
-    try {
-        const questionEmbedding = await openai.embeddings.create({
-            model: "text-embedding-3-small",
-            input: question,
-        });
-        const questionVector = questionEmbedding.data[0].embedding;
-
-        const similarities = documentVectors.map(doc => ({
-            content: doc.content,
-            similarity: cosineSimilarity(questionVector, doc.vector),
-        }));
-
-        const topContexts = similarities
-            .sort((a, b) => b.similarity - a.similarity)
-            .slice(0, 5) 
-            .map(ctx => ctx.content)
-            .join('\n---\n');
-
         const completion = await openai.chat.completions.create({
             model: "gpt-4o-mini",
             messages: [
                 {
                     role: "system",
-                    content: `당신은 '${learnedFilename}' 문서를 완벽하게 이해하고 분석하는 AI 전문가입니다. 사용자의 질문에 답변할 때, 문서에서 찾아낸 여러 정보를 적극적으로 조합하고, 추론하고, 요약해서 하나의 완성된 답변을 만들어주세요. 단순히 내용을 찾는 것을 넘어, 당신의 지능을 사용해 통찰력 있는 답변을 제공해야 합니다. 하지만, 모든 답변은 반드시 주어진 문서 내용에 근거해야 합니다. 추론은 허용되지만, 없는 사실을 지어내서는 절대 안 됩니다. 만약 문서에서 근거를 찾을 수 없다면, '문서의 내용만으로는 답변하기 어렵습니다.'라고 솔직하게 답변하세요.`
+                    content: `You are a language and intent detection specialist. Analyze the user's text. Respond with a JSON object with two keys: "language" (the language the user is communicating in, e.g., "English", "Korean", "French") and "intent" ("qa" for a general question, or "summarize" for a summarization request). If the user asks for a summary in a specific language, use that language. Otherwise, the response language is the same as the user's question language. Examples: 1. "이 문서 요약해줘" -> {"language": "Korean", "intent": "summarize"}. 2. "What is this about?" -> {"language": "English", "intent": "qa"}. 3. "résume ce document en français" -> {"language": "French", "intent": "summarize"}.`
                 },
                 {
                     role: "user",
-                    content: `아래 컨텍스트를 바탕으로 다음 질문에 답변해주세요.\n\n[컨텍스트]:\n${topContexts}\n\n[질문]:\n${question}`
+                    content: question
                 }
             ],
-            temperature: 0.7, 
+            response_format: { type: "json_object" },
+        });
+        const result = JSON.parse(completion.choices[0].message.content);
+        console.log("AI 언어/의도 감지 결과:", result);
+        if (result.language && result.intent) return result;
+        return { language: 'Korean', intent: 'qa' }; // 실패 시 기본값
+    } catch (error) {
+        console.error("AI 언어/의도 감지 실패:", error);
+        return { language: 'Korean', intent: 'qa' }; // 오류 발생 시 기본값
+    }
+}
+
+// --- 지능형 요약 로직 (다국어 지원) ---
+async function getSummary(language = 'Korean') {
+    if (!documentText) throw new Error('요약할 문서가 없습니다.');
+    console.log(`'${learnedFilename}' 문서 요약 요청 (언어: ${language})`);
+    const completion = await openai.chat.completions.create({
+        model: "gpt-4o-mini",
+        messages: [
+            { role: "system", content: `You are an expert summarizer. Provide a concise summary of the document. The summary MUST be in ${language}.` },
+            { role: "user", content: `[DOCUMENT]:\n${documentText}` }
+        ],
+        temperature: 0.5,
+    });
+    return completion.choices[0].message.content;
+}
+
+// 문서 학습 API (변경 없음)
+app.post('/api/train', upload.single('document'), async (req, res) => {
+    if (!req.file) return res.status(400).json({ message: '파일이 업로드되지 않았습니다.' });
+    try {
+        const originalnameInUtf8 = Buffer.from(req.file.originalname, 'latin1').toString('utf8');
+        learnedFilename = originalnameInUtf8;
+        console.log(`학습 시작: ${originalnameInUtf8}`);
+        
+        documentText = (req.file.mimetype === 'application/pdf') 
+            ? (await pdf(req.file.buffer, { max: 0 })).text 
+            : req.file.buffer.toString('utf8');
+
+        const chunks = chunkText(documentText);
+        documentVectors = [];
+        const batchSize = 100;
+        for (let i = 0; i < chunks.length; i += batchSize) {
+            const batchChunks = chunks.slice(i, i + batchSize);
+            const embeddingResponse = await openai.embeddings.create({ model: "text-embedding-3-small", input: batchChunks });
+            documentVectors.push(...embeddingResponse.data.map((e, j) => ({ content: batchChunks[j], vector: e.embedding })));
+        }
+        console.log(`학습 완료. 총 ${documentVectors.length}개의 벡터 생성.`);
+        res.status(200).json({ message: `\'${originalnameInUtf8}\' 학습 및 임베딩 완료!` });
+    } catch (error) {
+        console.error('학습 중 오류:', error);
+        res.status(500).json({ message: '문서 학습 중 오류가 발생했습니다.' });
+    }
+});
+
+
+// --- [최종 진화] 진정한 다국어 통합 API ---
+app.post('/api/ask', async (req, res) => {
+    const { question } = req.body;
+    if (!question) return res.status(400).json({ message: '질문이 없습니다.' });
+    if (!documentText) return res.json({ answer: "아직 학습된 문서가 없습니다." });
+
+    try {
+        // 1. AI가 스스로 의도와 언어를 파악
+        const { language, intent } = await detectInteraction(question);
+
+        // 2. 파악된 의도에 따라 기능 분기
+        if (intent === 'summarize') {
+            const summary = await getSummary(language);
+            return res.json({ answer: summary });
+        }
+
+        // 3. (기본값) 다국어 질의응답 처리
+        const questionEmbedding = await openai.embeddings.create({ model: "text-embedding-3-small", input: question });
+        const questionVector = questionEmbedding.data[0].embedding;
+
+        const topContexts = documentVectors
+            .map(doc => ({ ...doc, similarity: cosineSimilarity(questionVector, doc.vector) }))
+            .sort((a, b) => b.similarity - a.similarity)
+            .slice(0, 5)
+            .map(ctx => ctx.content)
+            .join('\n---\n');
+
+        // 4. [핵심] AI의 답변 언어를 질문의 언어와 동기화
+        const systemPrompt = `You are a world-class AI expert on the document '${learnedFilename}'. Your task is to provide a comprehensive and insightful answer based *only* on the provided context. If the answer is not in the context, say so. **You MUST write your entire response in ${language}.**`;
+
+        const completion = await openai.chat.completions.create({
+            model: "gpt-4o-mini",
+            messages: [
+                { role: "system", content: systemPrompt },
+                { role: "user", content: `[Context]:\n${topContexts}\n\n[Question]:\n${question}` }
+            ],
+            temperature: 0.7,
         });
 
-        const answer = completion.choices[0].message.content;
-        res.json({ answer });
+        res.json({ answer: completion.choices[0].message.content });
 
     } catch (error) {
-        console.error('답변 생성 중 오류:', error);
-        res.status(500).json({ message: '답변 생성 중 OpenAI API 오류가 발생했습니다.' });
+        console.error('처리 중 오류:', error);
+        res.status(500).json({ message: '요청 처리 중 오류가 발생했습니다.' });
     }
 });
 
