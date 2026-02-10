@@ -1,0 +1,10 @@
+name = "cloudflare-ai-assistant"
+compatibility_date = "2023-11-21"
+
+# 📜 이 아래는 Cloudflare 대시보드에서 확인한 당신의 정보로 채워야 합니다.
+# 🔑 README.md 파일의 "Cloudflare 배포 방법" 섹션을 반드시 참고하세요.
+account_id = "YOUR_ACCOUNT_ID_HERE"
+
+[[kv_namespaces]]
+binding = "DOC_KV"
+id = "YOUR_KV_NAMESPACE_ID_HERE"

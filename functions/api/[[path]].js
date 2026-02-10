@@ -34,9 +34,8 @@ async function handleTrain(request, env) {
     console.log(`학습 시작: ${originalname}`);
 
     const buffer = await file.arrayBuffer();
-    const documentText = file.type === 'application/pdf'
-        ? (await pdf(Buffer.from(buffer))).text
-        : new TextDecoder().decode(buffer);
+    const data = await pdf(Buffer.from(buffer));
+    const documentText = data.text;
 
     if (!documentText) {
         return new Response(JSON.stringify({ message: '파일에서 텍스트를 추출할 수 없습니다.' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
