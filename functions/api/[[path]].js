@@ -1,5 +1,5 @@
 import OpenAI from 'openai';
-import pdf from 'pdf-parse/lib/pdf-parse.js';
+import pdf from 'pdf-parse';
 
 // --- 유틸리티 함수 ---
 function chunkText(text, chunkSize = 1000, overlap = 100) {
