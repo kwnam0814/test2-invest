@@ -15,101 +15,62 @@
 -   **Frontend:** `Pure HTML, CSS, Vanilla JavaScript`
 -   **Backend:** `Cloudflare Pages Functions (Serverless)`
     -   기존의 Node.js 서버(`server.js`)를 완전히 제거하고, 전 세계에 분산된 Cloudflare의 엣지 네트워크에서 직접 실행되는 Pages Functions를 통해 백엔드 로직을 구현했습니다.
+-   **[NEW] 접근 제어 (Access Control):** `Cloudflare Middleware`
+    -   `functions/_middleware.js` 파일을 통해 모든 수신 요청을 중앙에서 통제합니다. 이를 통해 **허용된 IP 주소만 서비스에 접근**할 수 있도록 하는 강력한 보안 계층을 구축했습니다.
 -   **AI Core: RAG & Vector Search:** `OpenAI API (Embeddings & GPT-4o-mini)`
     -   **RAG (검색 증강 생성)** 아키텍처를 통해 **문서에 기반한 사실적인 답변**을 생성합니다.
-    -   **작동 원리:**
-        1.  **벡터화 (Vector Embedding):** 문서 텍스트를 의미 단위(Chunk)로 분할하고, OpenAI 임베딩 모델을 통해 각각을 의미가 압축된 **벡터(Vector)**로 변환합니다.
-        2.  **검색 (Retrieval):** 사용자 질문 또한 벡터로 변환하여, 벡터들 중 의미적으로 가장 유사한 것들을 **벡터 검색(Vector Search)**으로 찾아냅니다.
-        3.  **증강 및 생성 (Augmented Generation):** AI는 검색된 문서 조각들을 **'참고 자료'**로 삼아, 사용자의 질문에 대한 최종 답변을 생성합니다. 이를 통해 환각(Hallucination)을 방지하고 사실 기반의 정확한 답변을 제공합니다.
 -   **AI Memory (Database):** `Cloudflare KV`
-    -   서버리스 환경에서는 메모리가 유지되지 않는 문제를 해결하기 위해, Cloudflare의 Key-Value 스토리지인 **KV를 AI의 '외부 뇌(영구 기억 장치)'로 사용**합니다. 학습된 문서의 텍스트, 벡터 데이터, 파일명 등 AI의 모든 기억은 KV에 영구적으로 저장됩니다.
+    -   Cloudflare의 Key-Value 스토리지인 KV를 AI의 '외부 뇌(영구 기억 장치)'로 사용합니다.
 
 ## 3. 💡 핵심 기능 및 구현 과정
 
 ### 주요 기능
 
--   **[진화] 진정한 다국어 질의응답:** **AI가 사용자의 질문 언어를 자동으로 감지**하여, 영어 질문에는 영어로, 프랑스어 질문에는 프랑스어로 답변하는 등 **사용자의 언어로 실시간 소통**합니다.
--   **[진화] 대화형 다국어 요약:** "영어로 요약해줘", "résume en français" 와 같이, **AI와의 대화를 통해 문서 전체의 내용을 원하는 전 세계 언어**로 간결하게 요약 받습니다.
--   **서버리스 아키텍처:** 특정 서버 없이 Cloudflare의 글로벌 네트워크에서 동작하여, 유지보수 비용 없이 무한한 확장성을 가집니다.
+-   **[NEW] IP 기반 접근 제어:** 지정된 IP 주소에서만 서비스에 접속할 수 있도록 하여, 내부용 또는 비공개용으로 안전하게 운영할 수 있습니다.
+-   **진정한 다국어 질의응답:** AI가 사용자의 질문 언어를 자동으로 감지하여, 해당 언어로 실시간 소통합니다.
+-   **대화형 다국어 요약:** AI와의 대화를 통해 문서 전체의 내용을 원하는 언어로 간결하게 요약 받습니다.
+-   **서버리스 아키텍처:** 특정 서버 없이 Cloudflare의 글로벌 네트워크에서 동작합니다.
 
 ### 주요 문제 해결 과정 (Key Challenges & Solutions)
 
-1.  **문제: 서버리스 환경에서의 데이터 영속성 부재**
-    -   **현상:** 서버리스 함수는 실행될 때마다 새로운 환경에서 시작되므로, 이전 실행에서 학습시킨 문서 데이터를 기억할 수 없었습니다. 즉, AI가 '기억상실증'에 걸리는 문제가 발생했습니다.
-    -   **해결: 외부 기억 장치(Cloudflare KV) 도입**
-        -   Cloudflare의 Key-Value 스토리지인 **KV를 AI의 '영구 기억 장치'로 활용**했습니다.
-        -   문서 학습(`train`)이 완료되면, 생성된 텍스트와 벡터 데이터를 모두 직렬화(Serialize)하여 KV에 저장합니다.
-        -   사용자가 질문(`ask`)을 하면, KV에서 이 데이터들을 다시 불러와 AI의 기억을 복원한 후 답변을 생성하도록 아키텍처를 완전히 재설계했습니다.
-        -   이를 통해 서버리스 환경의 한계를 극복하고, AI가 자신의 기억을 영구적으로 유지할 수 있게 되었습니다.
+1.  **문제: 서비스의 비공개 운영 필요성**
+    -   **현상:** 기본적으로 Cloudflare Pages는 전 세계에 공개적으로 배포되어, 누구나 서비스에 접근할 수 있었습니다.
+    -   **해결: 접근 제어 미들웨어(IP Allowlist) 도입**
+        -   Cloudflare Pages Functions의 **미들웨어(`_middleware.js`)** 기능을 활용하여, 모든 요청이 실제 API나 페이지에 도달하기 전에 먼저 거치는 '검문소'를 만들었습니다.
+        -   이 검문소는 요청자의 IP 주소(`CF-Connecting-IP`)를 확인하여, **미리 정의된 허용 목록(Allowlist)**에 있는 IP일 경우에만 요청을 통과시킵니다.
+        -   이를 통해 배포 실패 문제와는 별개로, 서비스를 원하는 특정 사용자 그룹에게만 안전하게 제공할 수 있는 강력한 보안 아키텍처를 구축했습니다.
 
-2.  **문제: 복합적인 명령 인식 불가 및 단일 언어 응답의 한계**
-    -   **해결: 'AI 기반 언어/의도 감지기' 탑재**
-        -   사용자의 질문을 OpenAI API에 먼저 보내, 질문에 담긴 **핵심 '의도'와 사용된 '언어'를 AI가 스스로 분석하여 JSON 형식으로 반환**하게 만들었습니다.
-        -   이를 통해 AI가 "영어로 요약해줘"와 같은 복합적인 명령을 완벽하게 이해하고, 사용자의 언어로 직접 소통하는 진정한 다국어 소통 능력을 갖추게 되었습니다.
+## 4. 🚀 Cloudflare 배포 및 설정 방법
 
-## 4. 🚀 Cloudflare 배포 방법 (Deployment)
+### 4.1. 배포 절차
 
-이 프로젝트는 `wrangler` CLI를 통해 Cloudflare에 직접 배포합니다.
+(이전과 동일)
 
-### 사전 준비 (Prerequisites)
+### 4.2. [중요] IP 접근 제어 설정
 
-1.  **Cloudflare 계정 및 `wrangler` 설치**가 필요합니다. (`npm install -g wrangler`)
-2.  터미널에서 `wrangler login` 명령어로 Cloudflare 계정에 로그인합니다.
+`functions/_middleware.js` 파일 또는 Cloudflare 대시보드를 통해 접속을 허용할 IP를 관리할 수 있습니다.
 
-### 배포 절차
-
-1.  **저장소 복제 및 의존성 설치**
-    ```bash
-    git clone https://github.com/kwnam0814/test2-invest.git
-    cd test2-invest
-    npm install
+-   **방법 1: 코드에서 직접 수정 (간단한 방법)**
+    -   `functions/_middleware.js` 파일을 열고 `allowedIps` 배열에 허용할 IP 주소를 직접 추가합니다.
+    ```javascript
+    // 예시: 특정 IP 두 개만 허용
+    const allowedIps = ["192.168.1.10", "8.8.8.8"];
     ```
 
-2.  **[중요] KV 네임스페이스 생성 (AI의 기억 장소 만들기)**
-    -   AI의 기억을 저장할 KV 네임스페이스를 생성합니다. 아래 명령어에서 `DOC_KV`는 원하는 이름으로 변경할 수 있습니다.
-    ```bash
-    wrangler kv:namespace create "DOC_KV"
-    ```
-    -   **명령어 실행 후 출력되는 `id` 값을 복사해 두세요.**
-
-3.  **`wrangler.toml` 파일 생성 및 설정**
-    -   프로젝트 루트에 `wrangler.toml` 파일을 생성하고, 아래 내용을 붙여넣습니다.
-    -   `YOUR_ACCOUNT_ID`는 Cloudflare 대시보드에서 확인, `YOUR_KV_ID`는 위 2번 단계에서 복사한 `id` 값을 붙여넣습니다.
-
-    ```toml
-    name = "vibe-qna-ai" # 원하는 프로젝트 이름
-    main = "public/index.html" # 이 부분은 wrangler v3에서 사용되지 않을 수 있음
-    compatibility_date = "2023-11-21"
-    account_id = "YOUR_ACCOUNT_ID"
-
-    [[kv_namespaces]]
-    binding = "DOC_KV" # 코드(functions/api/[[path]].js)에서 사용할 이름. 반드시 "DOC_KV"로 유지!
-    id = "YOUR_KV_ID"
-
-    [vars]
-    # OPENAI_API_KEY는 아래 4번 단계에서 설정합니다.
-    ```
-
-4.  **Cloudflare에 OpenAI API 키 등록 (보안)**
-    -   보안을 위해 API 키는 코드가 아닌 Cloudflare에 직접 등록합니다.
-    ```bash
-    wrangler secret put OPENAI_API_KEY
-    ```
-    -   위 명령어를 실행하고 터미널에 자신의 OpenAI API 키를 입력합니다.
-
-5.  **배포 실행**
-    ```bash
-    npm run deploy
-    ```
-    -   배포가 완료되면 출력되는 `.pages.dev` 주소로 접속하여 AI 서비스를 이용할 수 있습니다.
+-   **방법 2: Cloudflare 환경 변수 사용 (권장)**
+    -   코드를 수정하고 다시 배포할 필요 없이, Cloudflare 대시보드에서 동적으로 IP 목록을 관리할 수 있습니다.
+    1.  Cloudflare 대시보드 > `Workers & Pages` > 프로젝트 선택 > `Settings` > `Environment variables` 로 이동합니다.
+    2.  `Add variable`을 클릭하고, 변수 이름은 `ALLOWED_IPS`로, 값은 허용할 IP 주소들을 쉼표(`,`)로 구분하여 입력합니다. (예: `11.22.33.44,55.66.77.88`)
+    3.  `Save`를 눌러 저장합니다.
 
 ## 5. 📂 파일 구조 (File Structure)
 
 ```
 /
-├── functions/             # 서버리스 백엔드 로직
-│   └── api/
-│       └── [[path]].js    # API 라우팅 및 핸들러
+├── functions/
+│   ├── api/
+│   │   └── [[path]].js    # API 라우팅 및 핸들러
+│   └── _middleware.js     # [NEW] 모든 요청을 위한 IP 접근 제어 미들웨어
 ├── public/                # 프론트엔드 (HTML/CSS/JS)
 │   ├── index.html
 │   ├── style.css
