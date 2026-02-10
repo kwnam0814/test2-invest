@@ -1,12 +1,34 @@
 {
+  "name": "cloudflare-ai-assistant",
+  "version": "1.0.0",
+  "description": "A serverless, multi-language AI Q&A assistant running on Cloudflare Pages.",
+  "main": "public/main.js",
+  "scripts": {
+    "start": "wrangler pages dev public",
+    "deploy": "wrangler pages deploy public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kwnam0814/test2-invest.git"
+  },
+  "keywords": [
+    "cloudflare",
+    "serverless",
+    "ai",
+    "rag",
+    "openai"
+  ],
+  "author": "Your Name",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/kwnam0814/test2-invest/issues"
+  },
+  "homepage": "https://github.com/kwnam0814/test2-invest#readme",
   "dependencies": {
-    "dotenv": "^17.2.4",
-    "express": "^4.22.1",
-    "multer": "^2.0.2",
-    "openai": "^6.19.0",
+    "openai": "^4.20.1",
     "pdf-parse": "^1.1.1"
   },
-  "scripts": {
-    "start": "node server.js"
+  "devDependencies": {
+    "wrangler": "^3.19.0"
   }
 }
